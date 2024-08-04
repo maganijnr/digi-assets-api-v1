@@ -36,6 +36,7 @@ model Asset {
   files       String[]
   price       String
   category    String
+  price_type  String
 }
 
 model Comment {

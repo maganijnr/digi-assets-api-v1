@@ -10,6 +10,11 @@ import { UsersModule } from './users/users.module';
 import { ConfigModule } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from './users/users.service';
+import { AssetsModule } from './assets/assets.module';
+import { AssetsService } from './assets/assets.service';
+import { UploadService } from './upload/upload.service';
+import { UploadController } from './upload/upload.controller';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -17,8 +22,18 @@ import { UsersService } from './users/users.service';
     PrismaModule,
     UsersModule,
     ConfigModule.forRoot({ isGlobal: true }),
+    AssetsModule,
+    UploadModule,
   ],
-  controllers: [AppController, AuthController],
-  providers: [AppService, AuthService, PrismaService, JwtService, UsersService],
+  controllers: [AppController, AuthController, UploadController],
+  providers: [
+    AppService,
+    AuthService,
+    PrismaService,
+    JwtService,
+    UsersService,
+    AssetsService,
+    UploadService,
+  ],
 })
 export class AppModule {}
