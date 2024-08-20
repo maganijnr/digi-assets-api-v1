@@ -1,19 +1,21 @@
-import { ForbiddenException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
-import { Asset } from '@prisma/client';
+import { Asset, User } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { Paginate } from 'src/utils/enums/paginate';
 
 @Injectable()
 export class AssetsService {
-  constructor(
-    private prisma: PrismaService,
-    // private paginate: Paginate,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async createAsset(
     asset: CreateAssetDto,
+    user: User,
   ): Promise<{ statusCode: HttpStatus; asset: Asset; message: string }> {
     try {
       const newAsset = await this.prisma.asset.create({
@@ -25,7 +27,7 @@ export class AssetsService {
           category: asset?.category,
           price: asset?.price,
           price_type: asset?.price_type,
-          userId: 'clysmlrhn0000ux7rrtkgy4aw',
+          userId: user?.id,
         },
       });
 
@@ -79,5 +81,113 @@ export class AssetsService {
       }
       throw error;
     }
+  }
+
+  //Delete an asset by a creator
+  async deleteAssetById(assetId: string, user: User) {
+    const asset = await this.prisma.asset.findUnique({
+      where: { id: assetId },
+    });
+
+    if (!asset) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Asset not found',
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    try {
+      //Check if the user is the creator of the asset
+      if (asset.userId !== user.id) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.FORBIDDEN,
+            message: 'You are not the creator of this asset',
+          },
+          HttpStatus.FORBIDDEN,
+        );
+      }
+
+      //Delete the asset
+      await this.prisma.asset.delete({ where: { id: assetId } });
+
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Asset deleted successfully',
+      };
+    } catch (error) {
+      throw new Error('Unable to delete asset');
+    }
+  }
+
+  //Update an asset
+  async updateAssetById(
+    assetData: {
+      asset_name?: string;
+      description?: string;
+      price?: string;
+      category?: string;
+      price_type?: string;
+      coverImage?: string;
+    },
+    assetId: string,
+    user: User,
+  ) {
+    const asset = await this.prisma.asset.findUnique({
+      where: { id: assetId },
+    });
+
+    if (!asset) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Asset not found',
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const updatedAsset = await this.prisma.asset.update({
+      where: { id: assetId },
+      data: { ...assetData },
+    });
+
+    if (updatedAsset) {
+      return {
+        statusCode: HttpStatus.OK,
+        asset: updatedAsset,
+        message: 'Asset updated successfully',
+      };
+    }
+
+    throw new HttpException(
+      {
+        statusCode: HttpStatus.FAILED_DEPENDENCY,
+        message: 'Unable to update asset',
+      },
+      HttpStatus.FAILED_DEPENDENCY,
+    );
+  }
+
+  async checkIfCurrentUserIsOwner(
+    currentUser: User,
+  ): Promise<{ statusCode: HttpStatus; message: string }> {
+    if (currentUser.role === 'USER') {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.FORBIDDEN,
+          message: 'You are not a creator.',
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'You are a creator.',
+    };
   }
 }
